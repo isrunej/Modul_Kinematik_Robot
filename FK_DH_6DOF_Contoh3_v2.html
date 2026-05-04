@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulasi FK DH 3D — Robot 6-DOF (Parameter Bisa Diubah)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0a0b10;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 14px;
+    font-size: 13px;
+  }
+  header {
+    background: #111827;
+    border: 1px solid #1e2d45;
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    background: #1e3a5f; color: #63b3ed;
+    font-size: 10px; font-weight: 700;
+    padding: 3px 9px; border-radius: 20px;
+    letter-spacing: 0.06em; white-space: nowrap; margin-top: 2px;
+  }
+  header h1 { font-size: 14px; font-weight: 700; }
+  header p  { font-size: 11px; color: #4a5568; margin-top: 2px; line-height: 1.5; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab {
+    padding: 6px 16px; font-size: 12px; font-weight: 600;
+    border-radius: 8px 8px 0 0; cursor: pointer;
+    border: 1px solid #1e2d45; border-bottom: none;
+    background: #0d1520; color: #4a5568; transition: all .15s;
+  }
+  .tab.active { background: #111827; color: #e2e8f0; border-color: #2d3f5a; }
+
+  /* Layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+  .card { background: #111827; border: 1px solid #1e2d45; border-radius: 10px; overflow: hidden; }
+  .card-header {
+    background: #0d1520; border-bottom: 1px solid #1e2d45;
+    padding: 7px 13px; font-size: 10px; font-weight: 700;
+    color: #4a5568; letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .card-body { padding: 12px; }
+
+  #r3c { display: block; width: 100%; cursor: grab; background: #06070c; }
+  #r3c:active { cursor: grabbing; }
+
+  /* Slider cards */
+  .jcard {
+    background: #0d1520; border: 1px solid #1e2d45;
+    border-radius: 8px; padding: 8px 10px; margin-bottom: 7px;
+  }
+  .jcard:last-child { margin-bottom: 0; }
+  .jcard-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .jcard-top .name { font-size: 12px; font-weight: 600; }
+  .jcard-top .val  { font-size: 11px; font-family: monospace; font-weight: 700; }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none;
+    height: 4px; border-radius: 2px; background: #1e2d45; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; cursor: pointer;
+  }
+
+  /* DH param editor table */
+  .param-table { width: 100%; border-collapse: collapse; }
+  .param-table thead tr { background: #0d1520; }
+  .param-table th {
+    padding: 7px 6px; font-size: 10px; font-weight: 700; color: #4a5568;
+    letter-spacing: 0.05em; border-bottom: 1px solid #1e2d45; text-align: center;
+  }
+  .param-table th:first-child { text-align: left; padding-left: 10px; }
+  .param-table td { padding: 5px 4px; border-top: 1px solid #111827; vertical-align: middle; text-align: center; }
+  .param-table td:first-child { padding-left: 10px; font-weight: 600; text-align: left; }
+  .param-table tr:nth-child(even) td { background: #0a0f1a; }
+
+  .param-table input[type=number] {
+    width: 68px; padding: 4px 6px;
+    background: #1a2535; border: 1px solid #2d3f5a;
+    border-radius: 5px; color: #e2e8f0; font-family: monospace;
+    font-size: 12px; text-align: center; outline: none;
+    transition: border-color .15s;
+  }
+  .param-table input[type=number]:focus { border-color: #4a90d9; }
+  .param-table input[type=number].changed { border-color: #f59e0b; background: #1e1a0a; }
+
+  /* Preset buttons */
+  .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  button {
+    font-size: 11px; padding: 5px 10px;
+    background: #0d1520; border: 1px solid #1e2d45;
+    border-radius: 6px; cursor: pointer; color: #94a3b8;
+    font-family: inherit; transition: all .15s; text-align: center;
+  }
+  button:hover { background: #162032; color: #e2e8f0; border-color: #2d3f5a; }
+  button.primary { background: #1e3a5f; border-color: #2b6cb0; color: #90cdf4; }
+  button.primary:hover { background: #1a4070; }
+  button.danger  { background: #2d1515; border-color: #7b2020; color: #fc8181; }
+  button.danger:hover  { background: #3d1a1a; }
+
+  /* EE output */
+  .ee-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+  .ee-box {
+    background: #0d1520; border: 1px solid #1e2d45;
+    border-radius: 7px; padding: 8px; text-align: center;
+  }
+  .ee-box .lbl { font-size: 9px; color: #4a5568; margin-bottom: 3px; }
+  .ee-box .num { font-size: 14px; font-weight: 700; font-family: monospace; }
+
+  /* Summary table */
+  table.sum { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.sum thead tr { background: #0d1520; }
+  table.sum th { padding: 6px 7px; font-weight: 700; color: #4a5568; font-size: 10px; letter-spacing: .05em; text-align: center; }
+  table.sum th:first-child { text-align: left; }
+  table.sum td { padding: 6px 7px; text-align: center; font-family: monospace; border-top: 1px solid #141e2e; }
+  table.sum td:first-child { text-align: left; font-family: inherit; font-weight: 600; }
+  table.sum tr:nth-child(even) td { background: #0a0f1a; }
+
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 10px; color: #4a5568; padding: 8px 0 0; }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  .hint-box {
+    background: #0d1a2a; border: 1px solid #1e3a5f;
+    border-radius: 8px; padding: 9px 13px;
+    font-size: 11px; color: #4a90d9; margin-bottom: 12px; line-height: 1.7;
+  }
+
+  .section-label {
+    font-size: 10px; font-weight: 700; color: #4a5568;
+    letter-spacing: .07em; text-transform: uppercase;
+    margin-bottom: 7px; padding-bottom: 5px;
+    border-bottom: 1px solid #1e2d45;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  footer {
+    text-align: center; font-size: 11px; color: #2d3748;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid #141e2e;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="badge">TEKNIK ROBOTIKA — UNEJ</div>
+    <h1>Simulasi Forward Kinematics DH 3D — Robot 6-DOF (Parameter Editable)</h1>
+    <p>Tab <strong>Sendi</strong>: geser sudut &bull; Tab <strong>Parameter DH</strong>: ubah a, d, α setiap link &bull; Tab <strong>Preset Robot</strong>: pilih robot standar</p>
+  </div>
+</header>
+
+<div class="hint-box">
+  💡 <strong>Alur validasi hitungan manual:</strong>
+  (1) Set parameter DH di tab <em>Parameter DH</em> &rarr;
+  (2) Hitung matriks A₁×...×A₆ secara manual &rarr;
+  (3) Set sudut sendi di tab <em>Sendi</em> &rarr;
+  (4) Bandingkan p_x, p_y, p_z dengan hasil perhitungan Anda.
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('sendi',this)">🎚 Sendi (θ)</div>
+  <div class="tab" onclick="switchTab('params',this)">📐 Parameter DH</div>
+  <div class="tab" onclick="switchTab('presets',this)">🤖 Preset Robot</div>
+</div>
+
+<!-- Panel: Sendi -->
+<div id="panel-sendi" class="panel active" style="margin-bottom:12px">
+  <div class="main-grid">
+    <div class="card">
+      <div class="card-header">Visualisasi Robot 3D — drag putar · scroll zoom</div>
+      <canvas id="r3c" height="440"></canvas>
+    </div>
+    <div>
+      <div id="sld"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button onclick="resetAll()">⟲ Reset</button>
+        <button onclick="setPS([30,60,-45,0,45,0])">Pose A</button>
+        <button onclick="setPS([-45,30,-60,90,-30,60])">Pose B</button>
+        <button onclick="setPS([90,-30,30,-45,60,-90])">Pose C</button>
+        <button onclick="setPS([0,-30,60,0,-30,0])">Pose D</button>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="card-header">Posisi End-Effector</div>
+        <div class="card-body">
+          <div class="ee-grid">
+            <div class="ee-box"><div class="lbl">p_x</div><div class="num" id="ox" style="color:#60a5fa">—</div></div>
+            <div class="ee-box"><div class="lbl">p_y</div><div class="num" id="oy" style="color:#34d399">—</div></div>
+            <div class="ee-box"><div class="lbl">p_z</div><div class="num" id="oz" style="color:#f6ad55">—</div></div>
+          </div>
+          <div class="legend">
+            <span><span class="dot" style="background:#3b82f6"></span>0→1</span>
+            <span><span class="dot" style="background:#10b981"></span>1→2</span>
+            <span><span class="dot" style="background:#84cc16"></span>2→3</span>
+            <span><span class="dot" style="background:#f59e0b"></span>3→4</span>
+            <span><span class="dot" style="background:#ef4444"></span>4→5</span>
+            <span><span class="dot" style="background:#a855f7"></span>5→H</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel: Parameter DH -->
+<div id="panel-params" class="panel" style="margin-bottom:12px">
+  <div class="card">
+    <div class="card-header">Edit Parameter DH — θ offset, d (link offset), a (link length), α (twist)</div>
+    <div class="card-body">
+      <p style="font-size:11px;color:#718096;margin-bottom:12px;line-height:1.6">
+        Ubah nilai di setiap sel lalu tekan <kbd style="background:#1e2d45;padding:1px 5px;border-radius:3px;font-size:10px">Enter</kbd> atau klik di luar kotak.
+        Nilai yang diubah dari default akan ditandai <span style="color:#f59e0b;font-weight:700">kuning</span>.
+        Satuan: a dan d dalam unit panjang (misalnya meter atau cm, konsisten), α dan θ_offset dalam derajat.
+      </p>
+      <div style="overflow-x:auto">
+        <table class="param-table">
+          <thead>
+            <tr>
+              <th>Frame</th>
+              <th>θ_offset (°)</th>
+              <th>d (link offset)</th>
+              <th>a (link length)</th>
+              <th>α (°)</th>
+            </tr>
+          </thead>
+          <tbody id="ptb"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="primary" onclick="applyParams()">✓ Terapkan Perubahan</button>
+        <button class="danger"  onclick="resetParams()">↺ Reset ke Default</button>
+        <button onclick="copyParams()">⎘ Salin sebagai Tabel</button>
+      </div>
+      <div id="copy-msg" style="font-size:11px;color:#68d391;margin-top:6px;display:none">✓ Tabel disalin ke clipboard!</div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel: Preset Robot -->
+<div id="panel-presets" class="panel" style="margin-bottom:12px">
+  <div class="card">
+    <div class="card-header">Preset Robot Standar</div>
+    <div class="card-body">
+      <p style="font-size:11px;color:#718096;margin-bottom:14px;line-height:1.6">
+        Pilih salah satu preset di bawah. Parameter DH akan otomatis ter-isi.
+        Setelah memilih, beralih ke tab <strong>Sendi</strong> untuk menggerakkan robot.
+      </p>
+      <div class="preset-grid">
+        <div style="border:1px solid #1e2d45;border-radius:9px;padding:12px">
+          <div style="font-weight:700;margin-bottom:4px;font-size:13px">Contoh 1 — 2-DOF Planar</div>
+          <div style="font-size:10px;color:#4a5568;margin-bottom:10px;line-height:1.5">Robot lengan planar 2 sendi dari slide Contoh 1. Semua gerakan di bidang XY, d=0, α=0.</div>
+          <button class="primary" onclick="loadPreset('2dof')" style="width:100%">Muat Preset Ini</button>
+        </div>
+        <div style="border:1px solid #1e2d45;border-radius:9px;padding:12px">
+          <div style="font-weight:700;margin-bottom:4px;font-size:13px">Contoh 3 — 6-DOF Niku</div>
+          <div style="font-size:10px;color:#4a5568;margin-bottom:10px;line-height:1.5">Robot 6 sendi dari buku Niku "Introduction to Robotics" Contoh 2.25. Default simulasi ini.</div>
+          <button class="primary" onclick="loadPreset('niku6')" style="width:100%">Muat Preset Ini</button>
+        </div>
+        <div style="border:1px solid #1e2d45;border-radius:9px;padding:12px">
+          <div style="font-weight:700;margin-bottom:4px;font-size:13px">PUMA 560 (approx)</div>
+          <div style="font-size:10px;color:#4a5568;margin-bottom:10px;line-height:1.5">Approximasi DH parameter robot industrial PUMA 560. Sering digunakan sebagai benchmark.</div>
+          <button class="primary" onclick="loadPreset('puma')" style="width:100%">Muat Preset Ini</button>
+        </div>
+        <div style="border:1px solid #1e2d45;border-radius:9px;padding:12px">
+          <div style="font-weight:700;margin-bottom:4px;font-size:13px">Custom Robot Anda</div>
+          <div style="font-size:10px;color:#4a5568;margin-bottom:10px;line-height:1.5">Masukkan parameter DH robot Anda sendiri secara manual di tab Parameter DH.</div>
+          <button onclick="switchTab('params',null);document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',i===1)})" style="width:100%">Buka Editor DH →</button>
+        </div>
+      </div>
+      <div id="preset-msg" style="margin-top:10px;font-size:12px;color:#68d391;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Live DH Summary Table (always visible) -->
+<div class="card" style="margin-bottom:12px">
+  <div class="card-header">Ringkasan Parameter DH Aktif — θ_eff = θᵢ_slider + θ_offset</div>
+  <div style="overflow-x:auto">
+    <table class="sum">
+      <thead>
+        <tr>
+          <th>Frame</th><th>θᵢ slider</th><th>θ_offset</th>
+          <th>θ_eff</th><th>d</th><th>a</th><th>α</th>
+        </tr>
+      </thead>
+      <tbody id="dhtb"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>
+  Teknik Robotika &bull; Lab. Sistem Cerdas &amp; Robotika, CDAST-UNEJ &bull; Dibuat dengan Claude AI
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// =====================================================================
+// PRESETS
+// =====================================================================
+const PRESETS = {
+  niku6: {
+    name: 'Contoh 3 — 6-DOF Niku',
+    joints: 6,
+    params: [
+      {to:0,   d:2.0, a:0,   al:90,  nm:'0→1', col:0x3b82f6, cc:'#3b82f6'},
+      {to:90,  d:0,   a:3.0, al:0,   nm:'1→2', col:0x10b981, cc:'#10b981'},
+      {to:-90, d:0,   a:0.5, al:-90, nm:'2→3', col:0x84cc16, cc:'#84cc16'},
+      {to:0,   d:2.5, a:0,   al:90,  nm:'3→4', col:0xf59e0b, cc:'#f59e0b'},
+      {to:0,   d:0,   a:0,   al:-90, nm:'4→5', col:0xef4444, cc:'#ef4444'},
+      {to:0,   d:0.8, a:0,   al:0,   nm:'5→H', col:0xa855f7, cc:'#a855f7'},
+    ]
+  },
+  '2dof': {
+    name: 'Contoh 1 — 2-DOF Planar',
+    joints: 6,
+    params: [
+      {to:0, d:0, a:2.0, al:0, nm:'0→1', col:0x3b82f6, cc:'#3b82f6'},
+      {to:0, d:0, a:1.5, al:0, nm:'1→2', col:0x10b981, cc:'#10b981'},
+      {to:0, d:0, a:0,   al:0, nm:'2→3', col:0x84cc16, cc:'#84cc16'},
+      {to:0, d:0, a:0,   al:0, nm:'3→4', col:0xf59e0b, cc:'#f59e0b'},
+      {to:0, d:0, a:0,   al:0, nm:'4→5', col:0xef4444, cc:'#ef4444'},
+      {to:0, d:0, a:0,   al:0, nm:'5→H', col:0xa855f7, cc:'#a855f7'},
+    ]
+  },
+  puma: {
+    name: 'PUMA 560 (approx)',
+    joints: 6,
+    params: [
+      {to:0,   d:0,     a:0,    al:90,  nm:'0→1', col:0x3b82f6, cc:'#3b82f6'},
+      {to:0,   d:0,     a:0.43, al:0,   nm:'1→2', col:0x10b981, cc:'#10b981'},
+      {to:0,   d:0.15,  a:0.02, al:-90, nm:'2→3', col:0x84cc16, cc:'#84cc16'},
+      {to:0,   d:0.43,  a:0,    al:90,  nm:'3→4', col:0xf59e0b, cc:'#f59e0b'},
+      {to:0,   d:0,     a:0,    al:-90, nm:'4→5', col:0xef4444, cc:'#ef4444'},
+      {to:0,   d:0,     a:0,    al:0,   nm:'5→H', col:0xa855f7, cc:'#a855f7'},
+    ]
+  }
+};
+
+let DHP = PRESETS.niku6.params.map(p => ({...p}));
+const DEFAULT_DHP = () => PRESETS.niku6.params.map(p => ({...p}));
+const SUB = ['₁','₂','₃','₄','₅','₆'];
+const D2R = Math.PI / 180;
+let thetas = [0,0,0,0,0,0];
+
+// =====================================================================
+// TAB SWITCHING
+// =====================================================================
+function switchTab(name, el) {
+  ['sendi','params','presets'].forEach(n => {
+    document.getElementById('panel-'+n).classList.toggle('active', n === name);
+  });
+  if (el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+// =====================================================================
+// SLIDER PANEL BUILD
+// =====================================================================
+function buildSliders() {
+  const sldDiv = document.getElementById('sld');
+  sldDiv.innerHTML = '';
+  DHP.forEach((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'jcard';
+    el.innerHTML = `
+      <div class="jcard-top">
+        <span class="name" style="color:${p.cc}">θ${SUB[i]} — ${p.nm}</span>
+        <span class="val" id="lj${i}" style="color:${p.cc}">${thetas[i]}°</span>
+      </div>
+      <input type="range" id="sl${i}" min="-180" max="180" value="${thetas[i]}" step="1"
+        style="accent-color:${p.cc}"
+        oninput="thetas[${i}]=+this.value;document.getElementById('lj${i}').textContent=this.value+'°';upd()">
+    `;
+    sldDiv.appendChild(el);
+  });
+}
+
+function resetAll() {
+  thetas = [0,0,0,0,0,0];
+  for (let i = 0; i < 6; i++) {
+    const s = document.getElementById('sl'+i);
+    if (s) { s.value = 0; }
+    const l = document.getElementById('lj'+i);
+    if (l) l.textContent = '0°';
+  }
+  upd();
+}
+function setPS(arr) {
+  arr.forEach((v,i) => {
+    thetas[i] = v;
+    const s = document.getElementById('sl'+i); if (s) s.value = v;
+    const l = document.getElementById('lj'+i); if (l) l.textContent = v+'°';
+  });
+  upd();
+}
+
+// =====================================================================
+// PARAM TABLE BUILD
+// =====================================================================
+const DEFAULT_VALS = PRESETS.niku6.params.map(p => ({to:p.to, d:p.d, a:p.a, al:p.al}));
+
+function buildParamTable() {
+  const tb = document.getElementById('ptb');
+  tb.innerHTML = DHP.map((p, i) => `
+    <tr>
+      <td style="color:${p.cc};font-weight:700">${p.nm}</td>
+      <td><input type="number" id="pt-to-${i}" value="${p.to}" step="1"
+          oninput="markChanged(this,${i},'to')"
+          title="θ offset: ditambahkan ke sudut slider. Misal 90° berarti posisi home joint ini adalah 90°"></td>
+      <td><input type="number" id="pt-d-${i}"  value="${p.d}"  step="0.1"
+          oninput="markChanged(this,${i},'d')"
+          title="d: jarak translasi sepanjang sumbu z (link offset)"></td>
+      <td><input type="number" id="pt-a-${i}"  value="${p.a}"  step="0.1"
+          oninput="markChanged(this,${i},'a')"
+          title="a: panjang link (jarak antara dua sumbu z berturutan sepanjang sumbu x)"></td>
+      <td><input type="number" id="pt-al-${i}" value="${p.al}" step="1"
+          oninput="markChanged(this,${i},'al')"
+          title="α: sudut twist — sudut antara dua sumbu z berturutan diukur di sumbu x"></td>
+    </tr>
+  `).join('');
+}
+
+function markChanged(el, i, field) {
+  const defs = {to: DEFAULT_VALS[i]?.to ?? 0, d: DEFAULT_VALS[i]?.d ?? 0, a: DEFAULT_VALS[i]?.a ?? 0, al: DEFAULT_VALS[i]?.al ?? 0};
+  el.classList.toggle('changed', +el.value !== defs[field]);
+}
+
+function applyParams() {
+  for (let i = 0; i < 6; i++) {
+    DHP[i].to = +document.getElementById(`pt-to-${i}`).value;
+    DHP[i].d  = +document.getElementById(`pt-d-${i}`).value;
+    DHP[i].a  = +document.getElementById(`pt-a-${i}`).value;
+    DHP[i].al = +document.getElementById(`pt-al-${i}`).value;
+  }
+  updateLinkColors();
+  upd();
+}
+
+function resetParams() {
+  DHP = DEFAULT_DHP();
+  buildParamTable();
+  updateLinkColors();
+  upd();
+}
+
+function copyParams() {
+  const rows = DHP.map((p,i) => `${p.nm}\t${thetas[i]+p.to}°\t${p.d}\t${p.a}\t${p.al}°`).join('\n');
+  const txt = `Frame\tθ_eff\td\ta\tα\n${rows}`;
+  navigator.clipboard.writeText(txt).then(() => {
+    const m = document.getElementById('copy-msg');
+    m.style.display = 'block';
+    setTimeout(() => m.style.display = 'none', 2500);
+  });
+}
+
+// =====================================================================
+// PRESETS LOADER
+// =====================================================================
+function loadPreset(key) {
+  const pr = PRESETS[key];
+  DHP = pr.params.map(p => ({...p}));
+  thetas = [0,0,0,0,0,0];
+  buildSliders();
+  buildParamTable();
+  updateLinkColors();
+  upd();
+  const m = document.getElementById('preset-msg');
+  m.textContent = `✓ Preset "${pr.name}" berhasil dimuat.`;
+  m.style.display = 'block';
+  setTimeout(() => m.style.display = 'none', 3000);
+}
+
+// =====================================================================
+// THREE.JS SETUP
+// =====================================================================
+const canvas = document.getElementById('r3c');
+const W = 700, H = 440;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(W, H); renderer.setClearColor(0x06070c);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, W/H, 0.1, 300);
+let oPhi = 1.0, oTh = 0.65, oR = 23;
+function setCam() {
+  camera.position.set(
+    oR * Math.sin(oPhi) * Math.cos(oTh),
+    oR * Math.cos(oPhi) + 4,
+    oR * Math.sin(oPhi) * Math.sin(oTh)
+  );
+  camera.lookAt(0, 4, 0);
+}
+setCam();
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const dl  = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(10,15,8); scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0x4466cc, 0.25); dl2.position.set(-8,5,-10); scene.add(dl2);
+scene.add(new THREE.GridHelper(28, 28, 0x151c2e, 0x0d1120));
+
+const RG = new THREE.Group(); RG.rotation.x = -Math.PI/2; scene.add(RG);
+
+// Base
+const bPlat = new THREE.Mesh(new THREE.CylinderGeometry(1.6,2.0,.5,28), new THREE.MeshPhongMaterial({color:0x1a2840}));
+bPlat.position.set(0,0,.25); RG.add(bPlat);
+const bCol = new THREE.Mesh(new THREE.CylinderGeometry(.5,.65,2.0,18), new THREE.MeshPhongMaterial({color:0x1e3050}));
+bCol.position.set(0,0,1.2); RG.add(bCol);
+
+// Joint spheres
+const jMesh = [];
+for (let i = 0; i <= 6; i++) {
+  const r = i===0?.52:i===6?.22:.33;
+  const col = i===0?0x3d5470:i===6?0xff2222:0xb0c8d8;
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r,22,22), new THREE.MeshPhongMaterial({color:col, emissive:i===6?0x340000:0, shininess:80}));
+  RG.add(m); jMesh.push(m);
+}
+
+// Link cylinders
+const lMesh = [];
+for (let i = 0; i < 6; i++) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,1,16), new THREE.MeshPhongMaterial({color:DHP[i].col, shininess:70}));
+  RG.add(m); lMesh.push(m);
+}
+
+// EE arrows
+const eeArrows = [];
+[[1,0,0,0xff2222],[0,1,0,0x22cc22],[0,0,1,0x2266ff]].forEach(([x,y,z,c]) => {
+  const a = new THREE.ArrowHelper(new THREE.Vector3(x,y,z), new THREE.Vector3(), 1.0, c, .24, .12);
+  RG.add(a); eeArrows.push(a);
+});
+
+// Z-axis arrows
+const zArrows = [];
+for (let i = 0; i <= 6; i++) {
+  const a = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(), .6, 0x5599ee, .14, .07);
+  RG.add(a); zArrows.push(a);
+}
+
+function updateLinkColors() {
+  for (let i = 0; i < 6; i++) {
+    lMesh[i].material.color.setHex(DHP[i].col);
+  }
+}
+
+// DH matrix
+function dhMat(th, d, a, al) {
+  const ct=Math.cos(th), st=Math.sin(th), ca=Math.cos(al), sa=Math.sin(al);
+  const m = new THREE.Matrix4();
+  m.set(ct,-st*ca,st*sa,a*ct, st,ct*ca,-ct*sa,a*st, 0,sa,ca,d, 0,0,0,1);
+  return m;
+}
+
+function fk() {
+  const pos=[new THREE.Vector3()], mats=[new THREE.Matrix4()];
+  let T = new THREE.Matrix4();
+  for (let i = 0; i < 6; i++) {
+    const p = DHP[i];
+    T = T.clone().multiply(dhMat((thetas[i]+p.to)*D2R, p.d, p.a, p.al*D2R));
+    mats.push(T.clone());
+    pos.push(new THREE.Vector3().setFromMatrixPosition(T));
+  }
+  return {pos, mats};
+}
+
+function alignCyl(mesh, p1, p2) {
+  const dir = new THREE.Vector3().subVectors(p2,p1);
+  const len = dir.length();
+  if (len < .001) { mesh.visible=false; return; }
+  mesh.visible = true;
+  mesh.position.copy(new THREE.Vector3().addVectors(p1,p2).multiplyScalar(.5));
+  mesh.scale.set(1,len,1);
+  const up=new THREE.Vector3(0,1,0), dn=dir.normalize();
+  if (up.dot(dn)<-.9999) mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI);
+  else mesh.quaternion.setFromUnitVectors(up,dn);
+}
+
+// =====================================================================
+// MAIN UPDATE
+// =====================================================================
+function upd() {
+  const {pos, mats} = fk();
+
+  pos.forEach((p,i) => jMesh[i].position.copy(p));
+  for (let i=0;i<6;i++) alignCyl(lMesh[i], pos[i], pos[i+1]);
+
+  const ep = pos[6];
+  const eq = new THREE.Quaternion().setFromRotationMatrix(mats[6]);
+  [[1,0,0],[0,1,0],[0,0,1]].forEach(([x,y,z],i) => {
+    eeArrows[i].position.copy(ep);
+    eeArrows[i].setDirection(new THREE.Vector3(x,y,z).applyQuaternion(eq));
+  });
+  mats.forEach((mat,i) => {
+    const q = new THREE.Quaternion().setFromRotationMatrix(mat);
+    zArrows[i].position.copy(pos[i]);
+    zArrows[i].setDirection(new THREE.Vector3(0,0,1).applyQuaternion(q));
+  });
+
+  document.getElementById('ox').textContent = ep.x.toFixed(4);
+  document.getElementById('oy').textContent = ep.y.toFixed(4);
+  document.getElementById('oz').textContent = ep.z.toFixed(4);
+
+  // Summary table
+  document.getElementById('dhtb').innerHTML = DHP.map((p,i) => `
+    <tr>
+      <td style="color:${p.cc}">${p.nm}</td>
+      <td style="color:#63b3ed">${thetas[i]}°</td>
+      <td style="color:#718096">${p.to===0?'—':(p.to>0?'+':'')+p.to+'°'}</td>
+      <td>${thetas[i]+p.to}°</td>
+      <td>${p.d}</td><td>${p.a}</td><td>${p.al}°</td>
+    </tr>`).join('');
+}
+
+// =====================================================================
+// ORBIT CONTROLS
+// =====================================================================
+let drag=false, lx=0, ly=0;
+canvas.addEventListener('mousedown', e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',   ()=>{drag=false;});
+window.addEventListener('mousemove', e=>{
+  if(!drag) return;
+  oTh -= (e.clientX-lx)*.012; lx=e.clientX;
+  oPhi = Math.max(.06,Math.min(2.65, oPhi-(e.clientY-ly)*.012)); ly=e.clientY;
+  setCam();
+});
+canvas.addEventListener('wheel', e=>{
+  oR = Math.max(6,Math.min(55,oR+e.deltaY*.03));
+  setCam(); e.preventDefault();
+},{passive:false});
+let tx=0,ty=0;
+canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+canvas.addEventListener('touchmove', e=>{
+  oTh -= (e.touches[0].clientX-tx)*.015; tx=e.touches[0].clientX;
+  oPhi = Math.max(.06,Math.min(2.65,oPhi-(e.touches[0].clientY-ty)*.015)); ty=e.touches[0].clientY;
+  setCam(); e.preventDefault();
+},{passive:false});
+
+function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);}
+animate();
+
+// =====================================================================
+// INIT
+// =====================================================================
+buildSliders();
+buildParamTable();
+upd();
+</script>
+</body>
+</html>
