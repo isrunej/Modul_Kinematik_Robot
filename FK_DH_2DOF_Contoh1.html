@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulasi FK DH — Robot 2-DOF Planar (Contoh 1)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  header {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  header .badge {
+    background: #2b6cb0;
+    color: #bee3f8;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: #e2e8f0; }
+  header p  { font-size: 11px; color: #718096; margin-top: 2px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card-header {
+    background: #161b27;
+    border-bottom: 1px solid #2d3748;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #718096;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .card-body { padding: 14px; }
+
+  canvas#cvs {
+    display: block;
+    width: 100%;
+    background: #0d1117;
+    border-radius: 0 0 10px 10px;
+  }
+
+  .slider-row { margin-bottom: 12px; }
+  .slider-row:last-child { margin-bottom: 0; }
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 5px;
+  }
+  .slider-label span { font-size: 13px; font-weight: 500; }
+  .slider-label .val { font-family: monospace; font-size: 13px; font-weight: 600; }
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: #2d3748;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .pos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pos-box {
+    background: #161b27;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .pos-box .label { font-size: 10px; color: #718096; margin-bottom: 4px; }
+  .pos-box .value { font-size: 18px; font-weight: 600; font-family: monospace; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: #161b27; }
+  th { padding: 7px 10px; text-align: center; font-weight: 600; color: #718096; font-size: 11px; letter-spacing: 0.04em; }
+  th:first-child { text-align: left; }
+  td { padding: 7px 10px; text-align: center; font-family: monospace; border-top: 1px solid #1e2535; }
+  td:first-child { text-align: left; font-family: inherit; font-weight: 500; }
+  tr:nth-child(even) { background: #161b27; }
+
+  .mat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .mat-box { background: #161b27; border: 1px solid #2d3748; border-radius: 8px; padding: 10px; }
+  .mat-title { font-size: 11px; color: #718096; margin-bottom: 8px; font-weight: 600; }
+  .mat-content { font-family: monospace; font-size: 11px; line-height: 1.9; white-space: pre; overflow-x: auto; }
+
+  .mat-total { background: #162032; border: 1px solid #2b4a7a; border-radius: 8px; padding: 10px; }
+  .mat-total .mat-title { color: #63b3ed; }
+
+  footer {
+    text-align: center;
+    font-size: 11px;
+    color: #4a5568;
+    margin-top: 16px;
+    padding: 12px;
+    border-top: 1px solid #1e2535;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="badge">TEKNIK ROBOTIKA — UNEJ</div>
+    <h1>Simulasi Forward Kinematics DH — Robot 2-DOF Planar</h1>
+    <p>Contoh 1 &bull; Geser slider untuk mengubah sudut sendi dan lihat perubahan posisi end-effector secara real-time</p>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-header">Visualisasi Robot 2D</div>
+    <canvas id="cvs" height="360"></canvas>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px;">
+
+    <div class="card">
+      <div class="card-header">Sudut Sendi</div>
+      <div class="card-body">
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>θ₁ — Joint 1</span>
+            <span class="val" id="lbl-t1" style="color:#60a5fa">30°</span>
+          </div>
+          <input type="range" id="s-t1" min="-180" max="180" value="30" step="1"
+            style="accent-color:#60a5fa" oninput="upd()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>θ₂ — Joint 2</span>
+            <span class="val" id="lbl-t2" style="color:#34d399">45°</span>
+          </div>
+          <input type="range" id="s-t2" min="-180" max="180" value="45" step="1"
+            style="accent-color:#34d399" oninput="upd()">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Panjang Link</div>
+      <div class="card-body">
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>a₁ — Link 1</span>
+            <span class="val" id="lbl-a1">2.0</span>
+          </div>
+          <input type="range" id="s-a1" min="0.5" max="3" value="2" step="0.1"
+            style="accent-color:#94a3b8" oninput="upd()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>a₂ — Link 2</span>
+            <span class="val" id="lbl-a2">1.5</span>
+          </div>
+          <input type="range" id="s-a2" min="0.5" max="3" value="1.5" step="0.1"
+            style="accent-color:#94a3b8" oninput="upd()">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Posisi End-Effector</div>
+      <div class="card-body">
+        <div class="pos-grid">
+          <div class="pos-box">
+            <div class="label">p_x</div>
+            <div class="value" id="out-x" style="color:#60a5fa">—</div>
+          </div>
+          <div class="pos-box">
+            <div class="label">p_y</div>
+            <div class="value" id="out-y" style="color:#34d399">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DH Table -->
+<div class="card" style="margin-bottom:14px">
+  <div class="card-header">Tabel Parameter DH — Robot 2-DOF Planar (d=0, α=0 untuk keduanya)</div>
+  <div class="card-body" style="padding:0">
+    <table>
+      <thead>
+        <tr>
+          <th>Frame</th>
+          <th>θ (variabel)</th>
+          <th>d</th>
+          <th>a (link length)</th>
+          <th>α</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:#60a5fa">0 → 1</td>
+          <td id="dh-t1" style="color:#60a5fa;font-weight:700">30°</td>
+          <td>0</td>
+          <td id="dh-a1">2.0</td>
+          <td>0°</td>
+        </tr>
+        <tr>
+          <td style="color:#34d399">1 → H</td>
+          <td id="dh-t2" style="color:#34d399;font-weight:700">45°</td>
+          <td>0</td>
+          <td id="dh-a2">1.5</td>
+          <td>0°</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Matrices -->
+<div class="mat-grid">
+  <div class="mat-box">
+    <div class="mat-title">A₁ = Matriks Transformasi Frame 0 → 1</div>
+    <div class="mat-content" id="mat-A1"></div>
+  </div>
+  <div class="mat-box">
+    <div class="mat-title">A₂ = Matriks Transformasi Frame 1 → H</div>
+    <div class="mat-content" id="mat-A2"></div>
+  </div>
+</div>
+<br>
+<div class="mat-total">
+  <div class="mat-title">⁰T_H = A₁ × A₂ &nbsp;—&nbsp; Transformasi Total (kolom ke-4 = posisi end-effector)</div>
+  <div class="mat-content" id="mat-T"></div>
+</div>
+
+<footer>
+  Teknik Robotika &bull; Lab. Sistem Cerdas &amp; Robotika, CDAST-UNEJ &bull;
+  Dibuat dengan Claude AI &bull; Cocokkan hasil perhitungan manual Anda dengan simulasi ini!
+</footer>
+
+<script>
+const d2r = d => d * Math.PI / 180;
+const f3  = v => (v >= 0 ? ' ' : '') + v.toFixed(3);
+
+function mm(A, B) {
+  return A.map((r, i) => B[0].map((_, j) => r.reduce((s, _, k) => s + A[i][k] * B[k][j], 0)));
+}
+
+function matStr(M) {
+  const bL = ['⎡','⎢','⎢','⎣'], bR = ['⎤','⎥','⎥','⎦'];
+  return M.map((row, ri) => {
+    const cells = row.map((v, ci) => {
+      const posCol = ci === 3 && ri < 3;
+      const dimRow = ri === 3;
+      let style = '';
+      if (posCol) style = 'color:#63b3ed;font-weight:700';
+      if (dimRow) style = 'color:#4a5568';
+      return `<span style="display:inline-block;width:60px;text-align:right;${style}">${f3(v)}</span>`;
+    }).join('<span style="width:6px;display:inline-block"></span>');
+    return `<div style="line-height:2">`+
+      `<span style="font-size:22px;line-height:1;vertical-align:middle;color:#4a5568;font-weight:100">${bL[ri]}</span>`+
+      cells+
+      `<span style="font-size:22px;line-height:1;vertical-align:middle;color:#4a5568;font-weight:100">${bR[ri]}</span>`+
+      `</div>`;
+  }).join('');
+}
+
+function drawArc(ctx, cx, cy, r, a0, a1, color, lbl) {
+  let diff = a1 - a0;
+  while (diff >  Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  if (Math.abs(diff) < 0.025) return;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -a0, -(a0 + diff), diff > 0);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.2;
+  ctx.setLineDash([3, 2]); ctx.stroke(); ctx.setLineDash([]);
+  const mid = a0 + diff / 2;
+  ctx.fillStyle = color; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(lbl, cx + (r + 13) * Math.cos(mid), cy - (r + 13) * Math.sin(mid) + 4);
+}
+
+function drawFrame(ctx, cx, cy, ang, lbl) {
+  const ax = 24;
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const xe = [cx + ax * ca, cy - ax * sa];
+  const ye = [cx - ax * sa, cy - ax * ca];
+  ctx.lineWidth = 1.8; ctx.setLineDash([]);
+  ctx.strokeStyle = '#fc8181'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(xe[0], xe[1]); ctx.stroke();
+  ctx.fillStyle  = '#fc8181'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('x' + lbl, xe[0] + ca * 10, xe[1] - sa * 10 + 3);
+  ctx.strokeStyle = '#68d391'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ye[0], ye[1]); ctx.stroke();
+  ctx.fillStyle  = '#68d391';
+  ctx.fillText('y' + lbl, ye[0] - sa * 10, ye[1] - ca * 10 + 3);
+  ctx.fillStyle = '#0d1117'; ctx.strokeStyle = '#4299e1'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#4299e1'; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI * 2); ctx.fill();
+}
+
+function upd() {
+  const t1 = +document.getElementById('s-t1').value;
+  const t2 = +document.getElementById('s-t2').value;
+  const a1 = +document.getElementById('s-a1').value;
+  const a2 = +document.getElementById('s-a2').value;
+
+  document.getElementById('lbl-t1').textContent = t1 + '°';
+  document.getElementById('lbl-t2').textContent = t2 + '°';
+  document.getElementById('lbl-a1').textContent = a1.toFixed(1);
+  document.getElementById('lbl-a2').textContent = a2.toFixed(1);
+  document.getElementById('dh-t1').textContent  = t1 + '°';
+  document.getElementById('dh-t2').textContent  = t2 + '°';
+  document.getElementById('dh-a1').textContent  = a1.toFixed(1);
+  document.getElementById('dh-a2').textContent  = a2.toFixed(1);
+
+  const r1 = d2r(t1), r2 = d2r(t2);
+  const c1 = Math.cos(r1), s1 = Math.sin(r1);
+  const c2 = Math.cos(r2), s2 = Math.sin(r2);
+  const c12 = Math.cos(r1 + r2), s12 = Math.sin(r1 + r2);
+
+  const A1 = [[c1, -s1, 0, a1*c1],[s1, c1, 0, a1*s1],[0,0,1,0],[0,0,0,1]];
+  const A2 = [[c2, -s2, 0, a2*c2],[s2, c2, 0, a2*s2],[0,0,1,0],[0,0,0,1]];
+  const T  = mm(A1, A2);
+
+  document.getElementById('mat-A1').innerHTML = matStr(A1);
+  document.getElementById('mat-A2').innerHTML = matStr(A2);
+  document.getElementById('mat-T').innerHTML  = matStr(T);
+
+  const px = a1 * c1 + a2 * c12;
+  const py = a1 * s1 + a2 * s12;
+  document.getElementById('out-x').textContent = px.toFixed(4);
+  document.getElementById('out-y').textContent = py.toFixed(4);
+
+  // Draw
+  const canvas = document.getElementById('cvs');
+  const W = canvas.clientWidth, H = 360;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const BX = W * 0.45, BY = H * 0.60;
+  const maxR = a1 + a2;
+  const sc = Math.min(110 / maxR, 56);
+
+  // Grid lines
+  ctx.strokeStyle = '#1e2535'; ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Axes
+  ctx.strokeStyle = '#2d3748'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(20, BY); ctx.lineTo(W - 20, BY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(BX, 15); ctx.lineTo(BX, H - 15); ctx.stroke();
+  ctx.fillStyle = '#4a5568'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('X', W - 30, BY - 4); ctx.textAlign = 'center';
+  ctx.fillText('Y', BX + 8, 24);
+
+  // Workspace circles
+  ctx.strokeStyle = '#2d3748'; ctx.lineWidth = 0.8; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(BX, BY, maxR * sc, 0, Math.PI * 2); ctx.stroke();
+  const rMin = Math.abs(a1 - a2);
+  if (rMin * sc > 6) {
+    ctx.beginPath(); ctx.arc(BX, BY, rMin * sc, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  const j0 = [BX, BY];
+  const j1 = [BX + a1 * c1 * sc, BY - a1 * s1 * sc];
+  const j2 = [j1[0] + a2 * c12 * sc, j1[1] - a2 * s12 * sc];
+
+  // Arcs
+  drawArc(ctx, j0[0], j0[1], 36, 0, r1, '#4299e1', 'θ₁');
+  drawArc(ctx, j1[0], j1[1], 26, r1, r1 + r2, '#38a169', 'θ₂');
+
+  // Links
+  ctx.lineCap = 'round'; ctx.setLineDash([]);
+  ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.moveTo(j0[0], j0[1]); ctx.lineTo(j1[0], j1[1]); ctx.stroke();
+  ctx.strokeStyle = '#276749'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.moveTo(j1[0], j1[1]); ctx.lineTo(j2[0], j2[1]); ctx.stroke();
+
+  // Link labels
+  const mx1 = (j0[0]+j1[0])/2, my1 = (j0[1]+j1[1])/2;
+  const mx2 = (j1[0]+j2[0])/2, my2 = (j1[1]+j2[1])/2;
+  const len1 = Math.max(a1*sc, 0.001), len2 = Math.max(a2*sc, 0.001);
+  const nx1 = -(j1[1]-j0[1])/len1*14, ny1 = (j1[0]-j0[0])/len1*14;
+  const nx2 = -(j2[1]-j1[1])/len2*13, ny2 = (j2[0]-j1[0])/len2*13;
+  ctx.font = '10px monospace'; ctx.fillStyle = '#90cdf4';
+  ctx.textAlign = 'center'; ctx.fillText('a₁='+a1.toFixed(1), mx1+nx1, my1+ny1+4);
+  ctx.fillStyle = '#9ae6b4';
+  ctx.fillText('a₂='+a2.toFixed(1), mx2+nx2, my2+ny2+4);
+
+  // Frames
+  drawFrame(ctx, j0[0], j0[1], 0,       '₀');
+  drawFrame(ctx, j1[0], j1[1], r1,      '₁');
+  drawFrame(ctx, j2[0], j2[1], r1+r2,   'H');
+
+  // Base joint
+  ctx.fillStyle = '#0d1117'; ctx.strokeStyle = '#d69e2e'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(j0[0], j0[1], 12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#d69e2e'; ctx.beginPath(); ctx.arc(j0[0], j0[1], 4, 0, Math.PI*2); ctx.fill();
+
+  // Middle joint
+  ctx.fillStyle = '#0d1117'; ctx.strokeStyle = '#a0aec0'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(j1[0], j1[1], 9, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#a0aec0'; ctx.beginPath(); ctx.arc(j1[0], j1[1], 3, 0, Math.PI*2); ctx.fill();
+
+  // End-effector
+  ctx.fillStyle = '#fc8181';
+  ctx.beginPath(); ctx.moveTo(j2[0],j2[1]-8); ctx.lineTo(j2[0]+6,j2[1]+4); ctx.lineTo(j2[0]-6,j2[1]+4); ctx.closePath(); ctx.fill();
+
+  // Position label
+  ctx.fillStyle = '#fc8181'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('P(' + px.toFixed(2) + ', ' + py.toFixed(2) + ')', j2[0] + 10, j2[1] - 5);
+}
+
+window.addEventListener('resize', upd);
+upd();
+</script>
+</body>
+</html>
