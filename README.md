@@ -18,6 +18,17 @@
 
 ---
 
+## 🎮 Simulasi Interaktif (Langsung di Browser)
+
+Tidak perlu install apapun — klik langsung dan coba gerakkan robot!
+
+| Simulasi | Keterangan | Link |
+|----------|------------|------|
+| Simulasi 2D | FK Robot 2-DOF Planar berbasis JavaScript | [▶ Buka Simulasi 2D](https://isrunej.github.io/Modul_Kinematik_Robot/FK_DH_2DOF_Contoh1.html) |
+| Simulasi 3D | FK Robot 6-DOF Spatial interaktif | [▶ Buka Simulasi 3D](https://isrunej.github.io/Modul_Kinematik_Robot/FK_DH_6DOF_Contoh3_v2.html) |
+
+---
+
 ## Cara Mengerjakan Tugas (untuk Mahasiswa)
 
 1. Klik tombol **Open in Colab** di tabel atas
